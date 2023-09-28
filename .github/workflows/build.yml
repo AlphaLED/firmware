@@ -45,7 +45,8 @@ jobs:
         git config --global user.name github-actions
         git config --global user.email github-actions@github.com
         git tag -d $GITHUB_REF_NAME
-        git commit -a -m "🏗️ Firmware v$(head -n 1 ./updater/versions.txt)"
+        git add .
+        git commit -m "🏗️ Firmware v$(head -n 1 ./updater/versions.txt)"
         git tag $GITHUB_REF_NAME
 
     - name: Push changes
