@@ -1,18 +1,148 @@
 #include <Arduino.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
 
-// put function declarations here:
-int myFunction(int, int);
+#include <Preferences.h>
+#include <LittleFS.h>
 
-void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+#include <ESPAsyncWebServer.h>
+
+#include <Battery.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+Preferences preferences;
+
+const bool WiFi_UpdateCredentialsFile = false; // Update network config in EEPROM?
+const char *WiFi_ssid = "";                    // Network name
+const char *WiFi_password = "";                // Network password
+
+
+const int pin_batVoltage = 3, pin_enableAnalogRead = 2, pin_chrg = 4, pin_stdby = 5, pin_temp = 10;
+const float adcVoltage = 2.83;
+
+Battery batt = Battery(3000, 4200, pin_batVoltage);
+float ratio = (40 + 9.75) / 9.75;
+
+OneWire oneWire(pin_temp);
+DallasTemperature tempSensor(&oneWire);
+
+bool serverOn = false;
+AsyncWebServer server(80);
+
+// DigiCert High Assurance EV Root CA
+const char githubCert[] PROGMEM = R"EOF( 
+-----BEGIN CERTIFICATE-----
+MIIDrzCCApegAwIBAgIQCDvgVpBCRrGhdWrJWZHHSjANBgkqhkiG9w0BAQUFADBh
+MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3
+d3cuZGlnaWNlcnQuY29tMSAwHgYDVQQDExdEaWdpQ2VydCBHbG9iYWwgUm9vdCBD
+QTAeFw0wNjExMTAwMDAwMDBaFw0zMTExMTAwMDAwMDBaMGExCzAJBgNVBAYTAlVT
+MRUwEwYDVQQKEwxEaWdpQ2VydCBJbmMxGTAXBgNVBAsTEHd3dy5kaWdpY2VydC5j
+b20xIDAeBgNVBAMTF0RpZ2lDZXJ0IEdsb2JhbCBSb290IENBMIIBIjANBgkqhkiG
+9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4jvhEXLeqKTTo1eqUKKPC3eQyaKl7hLOllsB
+CSDMAZOnTjC3U/dDxGkAV53ijSLdhwZAAIEJzs4bg7/fzTtxRuLWZscFs3YnFo97
+nh6Vfe63SKMI2tavegw5BmV/Sl0fvBf4q77uKNd0f3p4mVmFaG5cIzJLv07A6Fpt
+43C/dxC//AH2hdmoRBBYMql1GNXRor5H4idq9Joz+EkIYIvUX7Q6hL+hqkpMfT7P
+T19sdl6gSzeRntwi5m3OFBqOasv+zbMUZBfHWymeMr/y7vrTC0LUq7dBMtoM1O/4
+gdW7jVg/tRvoSSiicNoxBN33shbyTApOB6jtSj1etX+jkMOvJwIDAQABo2MwYTAO
+BgNVHQ8BAf8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUA95QNVbR
+TLtm8KPiGxvDl7I90VUwHwYDVR0jBBgwFoAUA95QNVbRTLtm8KPiGxvDl7I90VUw
+DQYJKoZIhvcNAQEFBQADggEBAMucN6pIExIK+t1EnE9SsPTfrgT1eXkIoyQY/Esr
+hMAtudXH/vTBH1jLuG2cenTnmCmrEbXjcKChzUyImZOMkXDiqw8cvpOp/2PV5Adg
+06O/nVsJ8dWO41P0jmP6P6fbtGbfYmbW0W5BjfIttep3Sp+dWOIrWcBAI+0tKIJF
+PnlUkiaY4IBIqDfv8NZ5YBberOgOzW6sRBc4L0na4UU+Krk2U886UAb3LujEV0ls
+YSEY1QSteDwsOoBrp+uvFRTp2InBuThs4pFsiv9kuXclVzDAGySj4dzp30d8tbQk
+CAUw7C29C79Fv1C5qfPrmAESrciIxpg0X40KPMbp1ZWVbd4=
+-----END CERTIFICATE-----
+)EOF";
+
+void wiFiInit()
+{
+  preferences.begin("wifi-credentials", true);
+  if (preferences.getString("SSID") != String())
+  {
+    WiFi.begin(preferences.getString("SSID"), preferences.getString("Password")); // If yes, try to connect
+    Serial.print("[INFO] Connecting to: ");
+    Serial.println(preferences.getString("Password"));
+  }
+  else
+    Serial.print("[ERROR] No wifi info saved.");
+
+  preferences.end();
 }
 
-void loop() {
-  // put your main code here, to run repeatedly:
+void setup()
+{
+  Serial.begin(115200);
+  Serial.println();
+  Serial.println("[STATUS] Start!");
+
+  if (!LittleFS.begin())
+    ESP.restart(); // Begin filesystem
+
+  if (WiFi_UpdateCredentialsFile)
+  {
+    preferences.begin("wifi-credentials");
+    preferences.putString("SSID", WiFi_ssid);
+    preferences.putString("Password", WiFi_password);
+    preferences.end();
+  }
+
+  wiFiInit();
+
+  pinMode(pin_chrg, INPUT);
+  pinMode(pin_stdby, INPUT);
+
+  analogReadResolution(10);
+  batt.onDemand(pin_enableAnalogRead);
+  batt.begin(adcVoltage*1000, ratio, &sigmoidal);
+
+  tempSensor.setResolution(9);
+  tempSensor.begin();
 }
 
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+// ------------------------
+// ------- Server ---------
+// ------------------------
+
+void initServer()
+{
+
+  configTime(2 * 3600, 0, "pool.ntp.org", "time.nist.gov");
+
+  // Sites
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->redirect("/home"); });
+  server.on("/home", HTTP_GET, [](AsyncWebServerRequest *request) {
+
+    bool isChrgOn = !digitalRead(pin_chrg);
+    bool isStdbyOn = !digitalRead(pin_stdby);
+    String msg = "";
+    if(isChrgOn) msg += "Charging... (";
+    else if(isStdbyOn) msg += "Charged. Ready to unplug (";
+    else msg += "Unplugged. (";
+
+    tempSensor.requestTemperatures();
+    msg += String(batt.voltage()/1000.0) + "V, " + String(batt.level()) + "%, " + String(tempSensor.getTempCByIndex(0)) + "°C)";
+
+    if (LittleFS.exists("/html/index.html")) {
+      request->send(LittleFS, "/html/index.html", "text/html");
+    } else {
+      request->send(200, "text/plain", msg);
+    }
+  });
+
+  server.begin();
+  serverOn = true;
+
+  Serial.print("[INFO] Server IP: ");
+  Serial.println(WiFi.localIP());
+}
+
+void loop()
+{
+  if (WiFi.status() == WL_CONNECTED && !serverOn)
+  {
+    initServer(); // Start server if wifi initialized
+  }
 }
