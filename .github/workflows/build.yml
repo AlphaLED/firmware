@@ -21,8 +21,6 @@ jobs:
 
     - name: Compile firmware & Build filesystem
       run: |
-        git checkout HEAD^
-
         pio run
         pio run --target buildfs
 
