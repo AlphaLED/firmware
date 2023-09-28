@@ -10,7 +10,7 @@
             "includePath": [
                 "C:/Users/lukas/OneDrive/Dokumenty/Repositories/LEDs/firmware/include",
                 "C:/Users/lukas/OneDrive/Dokumenty/Repositories/LEDs/firmware/src",
-                "C:/Users/lukas/OneDrive/Dokumenty/Repositories/LEDs/firmware/.pio/libdeps/hardware-v23_09_04/Battery Sense",
+                "C:/Users/lukas/OneDrive/Dokumenty/Repositories/LEDs/firmware/.pio/libdeps/v23_09_04/Battery Sense",
                 "C:/Users/lukas/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32c3/include/newlib/platform_include",
                 "C:/Users/lukas/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32c3/include/freertos/include",
                 "C:/Users/lukas/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32c3/include/freertos/include/esp_additions/freertos",
@@ -238,7 +238,7 @@
                 "path": [
                     "C:/Users/lukas/OneDrive/Dokumenty/Repositories/LEDs/firmware/include",
                     "C:/Users/lukas/OneDrive/Dokumenty/Repositories/LEDs/firmware/src",
-                    "C:/Users/lukas/OneDrive/Dokumenty/Repositories/LEDs/firmware/.pio/libdeps/hardware-v23_09_04/Battery Sense",
+                    "C:/Users/lukas/OneDrive/Dokumenty/Repositories/LEDs/firmware/.pio/libdeps/v23_09_04/Battery Sense",
                     "C:/Users/lukas/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32c3/include/newlib/platform_include",
                     "C:/Users/lukas/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32c3/include/freertos/include",
                     "C:/Users/lukas/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32c3/include/freertos/include/esp_additions/freertos",
