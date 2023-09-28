@@ -70,7 +70,6 @@ void initServer()
 
   configTime(2 * 3600, 0, "pool.ntp.org", "time.nist.gov");
 
-  server.reset();
   // Sites
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->redirect("/home"); });
