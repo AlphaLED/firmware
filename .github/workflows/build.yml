@@ -16,8 +16,11 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install PlatformIO
-      run: pip install --upgrade platformio
+    - name: Install PlatformIO & update runner
+      run: |
+        sudo apt update && sudo apt upgrade -y
+
+        pip install --upgrade platformio
 
     - name: Compile firmware
       run: |
