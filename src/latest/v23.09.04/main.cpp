@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WiFiClientSecure.h>
+#include <HTTPUpdate.h>
 
 #include <Preferences.h>
 #include <LittleFS.h>
@@ -28,7 +28,12 @@ OneWire oneWire(pin_temp);
 DallasTemperature tempSensor(&oneWire);
 
 bool serverOn = false;
+int updateRequested = 0;
 AsyncWebServer server(80);
+
+const char* board_version = "v23.09.04";
+const char* updaterUrl = "https://raw.githubusercontent.com/AlphaLED/firmware/main/updater/latest/%s/firmware.bin";
+const char* updaterFSUrl = "https://raw.githubusercontent.com/AlphaLED/firmware/main/updater/latest/%s/filesystem.bin";
 
 // DigiCert High Assurance EV Root CA
 const char githubCert[] PROGMEM = R"EOF( 
@@ -56,14 +61,83 @@ CAUw7C29C79Fv1C5qfPrmAESrciIxpg0X40KPMbp1ZWVbd4=
 -----END CERTIFICATE-----
 )EOF";
 
+// ------------------------
+// ------- Server ---------
+// ------------------------
+
+void initServer()
+{
+
+  configTime(2 * 3600, 0, "pool.ntp.org", "time.nist.gov");
+
+  server.reset();
+  // Sites
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->redirect("/home"); });
+  server.on("/home", HTTP_GET, [](AsyncWebServerRequest *request) {
+
+    bool isChrgOn = !digitalRead(pin_chrg);
+    bool isStdbyOn = !digitalRead(pin_stdby);
+    String msg = "";
+    if(isChrgOn) msg += "Charging... (";
+    else if(isStdbyOn) msg += "Charged. Ready to unplug (";
+    else msg += "Unplugged. (";
+
+    tempSensor.requestTemperatures();
+    msg += String(batt.voltage()/1000.0) + "V, " + String(batt.level()) + "%, " + String(tempSensor.getTempCByIndex(0)) + String(char(176)) + "C)\n";
+    File file = LittleFS.open("/version.txt");
+    String fileContent = "";
+    while (file.available()) {
+      char character = file.read();
+      fileContent += character;
+    }
+    file.close();
+    msg += "Using version: " + fileContent;
+
+    if (LittleFS.exists("/html/index.html")) {
+      request->send(LittleFS, "/html/index.html", "text/html");
+    } else {
+      request->send(200, "text/plain", msg);
+    }
+  });
+
+  server.on("/update", HTTP_GET, [](AsyncWebServerRequest *request) {
+    String msg;
+    if(!updateRequested) {
+      updateRequested = 1;
+      msg = "Requested update, please wait...";
+    }
+    else if(updateRequested == 3) {
+      msg = "Update complete, go to /reboot.";
+    }
+    else if(updateRequested == -1) {
+      msg = "Errorr";
+    }
+
+    request->send(200, "text/plain", msg);
+  });
+
+  server.on("/restart", HTTP_GET, [](AsyncWebServerRequest *request) {
+
+    request->redirect("/home");
+
+    ESP.restart();
+  });
+
+  server.begin();
+  serverOn = true;
+  Serial.print("[INFO] Server IP: ");
+  Serial.println(WiFi.localIP());
+}
+
 void wiFiInit()
 {
-  preferences.begin("wifi-credentials", true);
+  preferences.begin("wifi", true);
   if (preferences.getString("SSID") != String())
   {
     WiFi.begin(preferences.getString("SSID"), preferences.getString("Password")); // If yes, try to connect
     Serial.print("[INFO] Connecting to: ");
-    Serial.println(preferences.getString("Password"));
+    Serial.println(preferences.getString("SSID"));
   }
   else
     Serial.print("[ERROR] No wifi info saved.");
@@ -71,18 +145,70 @@ void wiFiInit()
   preferences.end();
 }
 
+void firmwareUpdate() // Updater
+{
+
+  configTime(0, 0, "pool.ntp.org", "time.nist.gov");  // Set time via NTP, as required for x.509 validation
+  time_t now = time(nullptr);
+
+  server.end();
+  updateRequested = 2;
+
+  WiFiClientSecure client;  // Create secure wifi client
+  client.setCACert(githubCert);
+
+  httpUpdate.rebootOnUpdate(false);
+  httpUpdate.onStart([]()
+                        { Serial.println("[INFO] Starting update..."); });
+  
+  httpUpdate.onProgress([&](int current, int total)
+                           {
+    Serial.print(((float)current / (float)total) * 100);
+    Serial.println("%"); });
+
+  char formattedUpdaterUrl[100];
+  sprintf(formattedUpdaterUrl, updaterUrl, board_version);
+  Serial.println(formattedUpdaterUrl);
+
+  t_httpUpdate_return ret;
+  ret = httpUpdate.update(client, formattedUpdaterUrl);  // Update firmware
+  if (!ret) {  // Error
+      Serial.println("[ERROR] Update error.");
+      initServer();
+      updateRequested = -1;
+      return;
+  }
+
+  sprintf(formattedUpdaterUrl, updaterFSUrl, board_version);
+  Serial.println(formattedUpdaterUrl);
+
+  ret = httpUpdate.updateSpiffs(client, formattedUpdaterUrl);
+  if (!ret) {  // Error
+      Serial.println("[ERROR] Update error.");
+      updateRequested = -1;
+      initServer();
+      return;
+  }
+
+  updateRequested = 3;
+  initServer();
+}
+
 void setup()
 {
-  Serial.begin(115200);
+  Serial.begin(9600);
   Serial.println();
   Serial.println("[STATUS] Start!");
 
-  if (!LittleFS.begin())
+  if (!LittleFS.begin()) {
+    Serial.println("[ERROR] ! FATAL filesystem error, reformatting...");
+    LittleFS.format();
     ESP.restart(); // Begin filesystem
+  }
 
   if (WiFi_UpdateCredentialsFile)
   {
-    preferences.begin("wifi-credentials");
+    preferences.begin("wifi");
     preferences.putString("SSID", WiFi_ssid);
     preferences.putString("Password", WiFi_password);
     preferences.end();
@@ -97,50 +223,14 @@ void setup()
   batt.onDemand(pin_enableAnalogRead);
   batt.begin(adcVoltage*1000, ratio, &sigmoidal);
 
-  tempSensor.setResolution(9);
   tempSensor.begin();
-}
-
-// ------------------------
-// ------- Server ---------
-// ------------------------
-
-void initServer()
-{
-
-  configTime(2 * 3600, 0, "pool.ntp.org", "time.nist.gov");
-
-  // Sites
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->redirect("/home"); });
-  server.on("/home", HTTP_GET, [](AsyncWebServerRequest *request) {
-
-    bool isChrgOn = !digitalRead(pin_chrg);
-    bool isStdbyOn = !digitalRead(pin_stdby);
-    String msg = "";
-    if(isChrgOn) msg += "Charging... (";
-    else if(isStdbyOn) msg += "Charged. Ready to unplug (";
-    else msg += "Unplugged. (";
-
-    tempSensor.requestTemperatures();
-    msg += String(batt.voltage()/1000.0) + "V, " + String(batt.level()) + "%, " + String(tempSensor.getTempCByIndex(0)) + "°C)";
-
-    if (LittleFS.exists("/html/index.html")) {
-      request->send(LittleFS, "/html/index.html", "text/html");
-    } else {
-      request->send(200, "text/plain", msg);
-    }
-  });
-
-  server.begin();
-  serverOn = true;
-
-  Serial.print("[INFO] Server IP: ");
-  Serial.println(WiFi.localIP());
+  tempSensor.setResolution(9);
 }
 
 void loop()
 {
+  if(updateRequested == 1) firmwareUpdate();
+
   if (WiFi.status() == WL_CONNECTED && !serverOn)
   {
     initServer(); // Start server if wifi initialized
