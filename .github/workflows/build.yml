@@ -31,7 +31,7 @@ jobs:
 
               mkdir ./updater/latest/${firmware_name} || true
               cp "$compiled_folder/firmware.bin" "./updater/latest/${firmware_name}/firmware.bin"
-              cp "$compiled_folder/*fs.bin" "./updater/latest/${firmware_name}/filesystem.bin"
+              cp "$compiled_folder/littlefs.bin" "./updater/latest/${firmware_name}/filesystem.bin"
             fi
         done
 
