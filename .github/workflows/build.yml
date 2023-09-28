@@ -10,6 +10,9 @@ jobs:
     
     - name: Clone repository
       uses: actions/checkout@v3
+      with:
+        ref: ${{ github.head_ref }}
+        fetch-depth: 0
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -35,7 +38,7 @@ jobs:
             fi
         done
 
-    - name: Push changes to repo
+    - name: Commit files
       if: startsWith(github.ref, 'refs/tags/')
       run: |
         rm -rf .pio/build/*
@@ -43,6 +46,13 @@ jobs:
 
         git config --global user.name github-actions
         git config --global user.email github-actions@github.com
-        git add .
-        git commit -m "🏗️ Firmware v$(head -n 1 ./updater/versions.txt)"
-        git push
+        git tag -d $GITHUB_REF_NAME
+        git tag $GITHUB_REF_NAME
+        git commit -a -m "🏗️ Firmware v$(head -n 1 ./updater/versions.txt)"
+    
+    - name: Push changes
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: ad-m/github-push-action@master
+      with:
+        force: true
+        tags: true
