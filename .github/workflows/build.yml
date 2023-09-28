@@ -11,8 +11,8 @@ jobs:
     - name: Clone repository
       uses: actions/checkout@v3
       with:
-        fetch-depth: 0
-
+        fetch-depth: 2
+        
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -23,6 +23,8 @@ jobs:
 
     - name: Compile firmware & Build filesystem
       run: |
+        git checkout HEAD^
+
         pio run
         pio run --target buildfs
 
@@ -37,7 +39,7 @@ jobs:
             fi
         done
 
-    - name: Commit files
+    - name: Push files
       if: startsWith(github.ref, 'refs/tags/')
       run: |
         cp ./src/versions.txt ./updater/versions.txt
@@ -46,11 +48,4 @@ jobs:
         git config --global user.email github-actions@github.com
         git add .
         git commit -m "🏗️ Firmware v$(head -n 1 ./updater/versions.txt)"
-
-    - name: Push changes
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: ad-m/github-push-action@master
-      with:
-        force_with_lease: true
-        tags: true
-        branch: ${{ github.ref }}
+        git push
