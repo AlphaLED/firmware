@@ -44,15 +44,13 @@ jobs:
 
         git config --global user.name github-actions
         git config --global user.email github-actions@github.com
-        git tag -d $GITHUB_REF_NAME
         git add .
         git commit -m "🏗️ Firmware v$(head -n 1 ./updater/versions.txt)"
-        git tag $GITHUB_REF_NAME
 
     - name: Push changes
       if: startsWith(github.ref, 'refs/tags/')
       uses: ad-m/github-push-action@master
       with:
-        force: true
+        force_with_lease: true
         tags: true
         branch: ${{ github.ref }}
