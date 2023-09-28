@@ -11,12 +11,6 @@ jobs:
     - name: Clone repository
       uses: actions/checkout@v3
 
-    - name: Check filesystem existence
-      id: check_files
-      uses: andstor/file-existence-action@v2
-      with:
-        files: "data"
-
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -28,6 +22,7 @@ jobs:
     - name: Compile firmware
       run: |
         pio run
+        pio run --target buildfs
 
         for compiled_folder in .pio/build/*; do
             if [ -d "$compiled_folder" ]; then
@@ -36,21 +31,8 @@ jobs:
 
               mkdir ./updater/latest/${firmware_name} || true
               cp "$compiled_folder/firmware.bin" "./updater/latest/${firmware_name}/firmware.bin"
+              cp "$compiled_folder/*fs.bin" "./updater/latest/${firmware_name}/filesystem.bin"
             fi
-        done
-
-    - name: Compile filesystem
-      if: steps.check_files.outputs.files_exists == 'true'
-      run: |
-        pio run --target buildfs
-        
-        for compiled_folder in .pio/build/*; do
-          if [ -d "$compiled_folder" ]; then
-
-            firmware_name=$(basename "$compiled_folder")
-
-            cp "$compiled_folder/*fs.bin" "./updater/latest/${firmware_name}/filesystem.bin"
-          fi
         done
 
     - name: Push changes to repo
