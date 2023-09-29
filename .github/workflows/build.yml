@@ -23,6 +23,8 @@ jobs:
 
     - name: Compile firmware & Build filesystem
       run: |
+        rm -rf ./data/version.txt || true
+        touch ./data/version.txt
         cp ./src/versions.txt ./updater/versions.txt
         head -n 1 ./updater/versions.txt >> ./data/version.txt
         
