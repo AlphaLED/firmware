@@ -18,7 +18,7 @@ const char *WiFi_ssid = "";                    // Network name
 const char *WiFi_password = "";                // Network password
 
 
-const int pin_batVoltage = 3, pin_enableAnalogRead = 2, pin_chrg = 4, pin_stdby = 5, pin_temp = 10;
+const int pin_enableAnalogRead = 2, pin_brightnessCheck = 1, pin_batVoltage = 3, pin_chrg = 4, pin_chrgStdby = 5, pin_temp = 10, pin_powerSwitch = 6, pin_powerOn = 8, pin_leds = 7;
 const float adcVoltage = 2.83;
 
 Battery batt = Battery(3000, 4200, pin_batVoltage);
@@ -76,7 +76,7 @@ void initServer()
   server.on("/home", HTTP_GET, [](AsyncWebServerRequest *request) {
 
     bool isChrgOn = !digitalRead(pin_chrg);
-    bool isStdbyOn = !digitalRead(pin_stdby);
+    bool isStdbyOn = !digitalRead(pin_chrgStdby);
     String msg = "";
     if(isChrgOn) msg += "Charging... (";
     else if(isStdbyOn) msg += "Charged. Ready to unplug (";
@@ -114,6 +114,13 @@ void initServer()
     }
 
     request->send(200, "text/plain", msg);
+  });
+
+  server.on("/shutdown", HTTP_GET, [](AsyncWebServerRequest *request) {
+
+    request->send(200, "text/plain", "Power off target reached.");
+
+    digitalWrite(pin_powerOn, LOW);
   });
 
   server.on("/restart", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -216,7 +223,11 @@ void setup()
   wiFiInit();
 
   pinMode(pin_chrg, INPUT);
-  pinMode(pin_stdby, INPUT);
+  pinMode(pin_chrgStdby, INPUT);
+  pinMode(pin_powerSwitch, INPUT);
+
+  pinMode(pin_powerOn, OUTPUT);
+  digitalWrite(pin_powerOn, HIGH);
 
   analogReadResolution(10);
   batt.onDemand(pin_enableAnalogRead);
@@ -233,5 +244,10 @@ void loop()
   if (WiFi.status() == WL_CONNECTED && !serverOn)
   {
     initServer(); // Start server if wifi initialized
+  }
+
+  if(digitalRead(pin_powerSwitch)) {
+    Serial.println("Requested shutdown.");
+    digitalWrite(pin_powerOn, LOW);
   }
 }
