@@ -31,7 +31,7 @@ bool serverOn = false;
 int updateRequested = 0;
 AsyncWebServer server(80);
 
-const char* board_version = "v23.09.04";
+const char* board_version = "v23_09_04";
 const char* updaterUrl = "https://raw.githubusercontent.com/AlphaLED/firmware/main/updater/latest/%s/firmware.bin";
 const char* updaterFSUrl = "https://raw.githubusercontent.com/AlphaLED/firmware/main/updater/latest/%s/filesystem.bin";
 
