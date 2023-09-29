@@ -23,9 +23,10 @@ jobs:
 
     - name: Compile firmware & Build filesystem
       run: |
-        rm -rf ./data/version.txt || true
-        touch ./data/version.txt
         cp ./src/versions.txt ./updater/versions.txt
+
+        rm -rf ./data/version.txt || true
+        mkdir ./data || true
         head -n 1 ./updater/versions.txt >> ./data/version.txt
         
         pio run
