@@ -107,7 +107,7 @@ void initServer()
       msg = "Requested update, please wait...";
     }
     else if(updateRequested == 3) {
-      msg = "Update complete, go to /reboot.";
+      msg = "Update complete, go to /restart.";
     }
     else if(updateRequested == -1) {
       msg = "Errorr";
