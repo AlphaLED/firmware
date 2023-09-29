@@ -107,12 +107,9 @@ void initServer()
     String msg;
     if(!updateRequested) {
       updateRequested = 1;
-      msg = "Requested update, please wait...";
+      msg = "Requested update, please restart your device when it shuts down.";
     }
-    else if(updateRequested == 3) {
-      msg = "Update complete, go to /shutdown and restart your ESP.";
-    }
-    else if(updateRequested == -1) {
+    else {
       msg = "Errorr";
     }
 
@@ -192,8 +189,7 @@ void firmwareUpdate() // Updater
       return;
   }
 
-  updateRequested = 3;
-  initServer();
+  ESP.restart();
 }
 
 void setup()
