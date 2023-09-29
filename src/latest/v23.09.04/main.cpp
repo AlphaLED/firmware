@@ -35,6 +35,9 @@ const char* board_version = "v23_09_04";
 const char* updaterUrl = "https://raw.githubusercontent.com/AlphaLED/firmware/main/updater/latest/%s/firmware.bin";
 const char* updaterFSUrl = "https://raw.githubusercontent.com/AlphaLED/firmware/main/updater/latest/%s/filesystem.bin";
 
+int lastPowerButtonState;
+bool shutdownRequest = false;
+
 // DigiCert High Assurance EV Root CA
 const char githubCert[] PROGMEM = R"EOF( 
 -----BEGIN CERTIFICATE-----
@@ -120,7 +123,7 @@ void initServer()
 
     request->send(200, "text/plain", "Power off target reached.");
 
-    ESP.restart();
+    shutdownRequest = true;
   });
 
   server.begin();
@@ -193,7 +196,6 @@ void firmwareUpdate() // Updater
   initServer();
 }
 
-int lastPowerButtonState;
 void setup()
 {
   Serial.begin(9600);
@@ -243,9 +245,14 @@ void loop()
   int powerBtnState = digitalRead(pin_powerSwitch);
   if (powerBtnState != lastPowerButtonState) {
       if (powerBtnState == HIGH) {
-          Serial.println("Requested shutdown.");
-          ESP.restart();
+        shutdownRequest = true;
       }
     lastPowerButtonState = powerBtnState;
+  }
+
+  if(shutdownRequest) {
+      Serial.println("Requested shutdown.");
+      digitalWrite(pin_powerOn, LOW);
+      while(true) {};
   }
 }
