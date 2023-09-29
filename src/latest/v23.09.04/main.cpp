@@ -200,17 +200,20 @@ void firmwareUpdate() // Updater
   initServer();
 }
 
+int lastPowerButtonState;
 void setup()
 {
   Serial.begin(9600);
   Serial.println();
   Serial.println("[STATUS] Start!");
 
-  if (!LittleFS.begin()) {
-    Serial.println("[ERROR] ! FATAL filesystem error, reformatting...");
-    LittleFS.format();
-    ESP.restart(); // Begin filesystem
-  }
+  pinMode(pin_chrg, INPUT);
+  pinMode(pin_chrgStdby, INPUT);
+  pinMode(pin_powerSwitch, INPUT);
+  lastPowerButtonState = HIGH;
+
+  pinMode(pin_powerOn, OUTPUT);
+  digitalWrite(pin_powerOn, HIGH);
 
   if (WiFi_UpdateCredentialsFile)
   {
@@ -219,15 +222,13 @@ void setup()
     preferences.putString("Password", WiFi_password);
     preferences.end();
   }
-
   wiFiInit();
 
-  pinMode(pin_chrg, INPUT);
-  pinMode(pin_chrgStdby, INPUT);
-  pinMode(pin_powerSwitch, INPUT);
-
-  pinMode(pin_powerOn, OUTPUT);
-  digitalWrite(pin_powerOn, HIGH);
+  if (!LittleFS.begin()) {
+    Serial.println("[ERROR] ! FATAL filesystem error, reformatting...");
+    LittleFS.format();
+    ESP.restart(); // Begin filesystem
+  }
 
   analogReadResolution(10);
   batt.onDemand(pin_enableAnalogRead);
@@ -246,8 +247,12 @@ void loop()
     initServer(); // Start server if wifi initialized
   }
 
-  if(digitalRead(pin_powerSwitch)) {
-    Serial.println("Requested shutdown.");
-    digitalWrite(pin_powerOn, LOW);
+  int powerBtnState = digitalRead(pin_powerSwitch);
+  if (powerBtnState != lastPowerButtonState) {
+      if (powerBtnState == HIGH) {
+          Serial.println("Requested shutdown.");
+          digitalWrite(pin_powerOn, LOW);
+      }
+    lastPowerButtonState = powerBtnState;
   }
 }
