@@ -251,7 +251,7 @@ void loop()
   }
 
   if(shutdownRequest) {
-      Serial.println("Requested shutdown.");
+      Serial.println("[INFO] Requested shutdown.");
       digitalWrite(pin_powerOn, LOW);
       while(true) {};
   }
