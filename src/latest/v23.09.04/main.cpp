@@ -107,7 +107,7 @@ void initServer()
       msg = "Requested update, please wait...";
     }
     else if(updateRequested == 3) {
-      msg = "Update complete, go to /restart.";
+      msg = "Update complete, go to /shutdown and restart your ESP.";
     }
     else if(updateRequested == -1) {
       msg = "Errorr";
@@ -119,13 +119,6 @@ void initServer()
   server.on("/shutdown", HTTP_GET, [](AsyncWebServerRequest *request) {
 
     request->send(200, "text/plain", "Power off target reached.");
-
-    digitalWrite(pin_powerOn, LOW);
-  });
-
-  server.on("/restart", HTTP_GET, [](AsyncWebServerRequest *request) {
-
-    request->redirect("/home");
 
     ESP.restart();
   });
@@ -251,7 +244,7 @@ void loop()
   if (powerBtnState != lastPowerButtonState) {
       if (powerBtnState == HIGH) {
           Serial.println("Requested shutdown.");
-          digitalWrite(pin_powerOn, LOW);
+          ESP.restart();
       }
     lastPowerButtonState = powerBtnState;
   }
