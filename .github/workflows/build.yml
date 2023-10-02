@@ -2,9 +2,7 @@ name: PlatformIO Build
 on: 
   workflow_dispatch:
     
-  push: 
-    paths: 
-      - "src/versions.txt"
+  push:
 
 jobs:
 
@@ -48,10 +46,15 @@ jobs:
             fi
         done
 
-    - name: Push files
+    - name: (?) Push files
       run: |
-        git config --global user.name github-actions
-        git config --global user.email github-actions@github.com
-        git add .
-        git commit -m "🏗️ Firmware v$(head -n 1 ./updater/versions.txt)"
-        git push
+
+        if [ -n "$(git diff --name-only ${{ github.sha }}^ ${{ github.sha }} | grep 'src/versions.txt')" ]; then
+          git config --global user.name github-actions
+          git config --global user.email github-actions@github.com
+          git add .
+          git commit -m "🏗️ Firmware v$(head -n 1 ./updater/versions.txt)"
+          git push
+        else
+          echo "Version list not changed, aborting push."
+        fi
