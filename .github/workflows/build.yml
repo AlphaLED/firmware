@@ -1,8 +1,5 @@
 name: PlatformIO Build
-on: 
-  workflow_dispatch:
-    
-  push:
+on: [workflow_dispatch, push]
 
 jobs:
 
@@ -14,7 +11,6 @@ jobs:
     - name: Clone repository
       uses: actions/checkout@v4
       with:
-        ref: 'main'
         fetch-depth: 2
 
     - name: Set up Python
