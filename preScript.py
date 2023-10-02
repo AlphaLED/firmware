@@ -1,17 +1,24 @@
 import os
 import shutil
-import platform
-import contextlib
 
 Import("env")
 
-operating_system = platform.system()
-if operating_system == 'Linux' or operating_system == 'Darwin':  # Unix/Linux/macOS
-    devnull = '/dev/null'
-elif operating_system == 'Windows':  # Windows
-    devnull = 'NUL'
+def partitions_copy():
+    source = os.path.join('partitions', env["PIOENV"].replace('_', '.') + '.csv')
+    target = os.path.join('.', '.partitions.csv')
 
-def copy_files(source, target, env):
+    # Copy csv file
+    print(f"[SCRIPT] Copying \"{source}\"...")
+    shutil.copy(source, target)
+
+def partitions_clear(source, target, env):
+    target = os.path.join('.', '.partitions.csv')
+
+    # Remove unneeded csv
+    os.remove(target)
+    print("[SCRIPT] Removed temporary partitions csv.")
+
+def copy_data(source, target, env):
     source_dir = os.path.join('src', 'latest', env["PIOENV"].replace('_', '.'), 'filesystem')
     target_dir = os.path.join('data')
 
@@ -20,12 +27,15 @@ def copy_files(source, target, env):
     if os.path.exists(target_dir): shutil.rmtree(target_dir)
     shutil.copytree(source_dir, target_dir)
 
-def remove_files(source, target, env):
+def remove_data(source, target, env):
     target_dir = os.path.join('data')
 
     # Remove unneeded path
     shutil.rmtree(target_dir)
     print("[SCRIPT] Removed temporary \"data\" folder.")
 
-env.AddPreAction("$BUILD_DIR/littlefs.bin", copy_files)
-env.AddPostAction("$BUILD_DIR/littlefs.bin", remove_files)
+partitions_copy()
+env.AddPostAction("$PROGPATH", partitions_clear)
+
+env.AddPreAction("$BUILD_DIR/littlefs.bin", copy_data)
+env.AddPostAction("$BUILD_DIR/littlefs.bin", remove_data)
