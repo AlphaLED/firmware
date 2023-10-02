@@ -17,6 +17,7 @@ def copy_files(source, target, env):
 
     # Copy files to data dir
     print(f"[SCRIPT] Copying from \"{source_dir}\" to \"{target_dir}\"...")
+    if os.path.exists(target_dir): shutil.rmtree(target_dir)
     shutil.copytree(source_dir, target_dir)
 
 def remove_files(source, target, env):
